@@ -13,7 +13,24 @@ from datetime import datetime
 from io import StringIO
 
 # Agregar path al sistema multiagente
-MULTIAGENTE_PATH = r'C:\Users\Alejandro Jimenez\.openclaw\workspace\interfaz_limpia'
+MULTIAGENTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sistema_multiagente')
+
+# Si no existe, clonar desde GitHub
+if not os.path.exists(MULTIAGENTE_PATH):
+    try:
+        import subprocess
+        result = subprocess.run([
+            'git', 'clone', 
+            'https://github.com/Toaderz/interfaz_limpia.git',
+            MULTIAGENTE_PATH
+        ], capture_output=True, timeout=30)
+        if result.returncode == 0:
+            print(f"Sistema multiagente clonado en: {MULTIAGENTE_PATH}")
+        else:
+            print(f"Error clonando: {result.stderr.decode()}")
+    except Exception as e:
+        print(f"Error: {e}")
+
 if MULTIAGENTE_PATH not in sys.path:
     sys.path.insert(0, MULTIAGENTE_PATH)
 
