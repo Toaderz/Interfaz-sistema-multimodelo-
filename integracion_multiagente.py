@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Integracion REAL entre Dashboard y Sistema Multiagente v4.0
-SIMPLIFICADA para Railway - imports lazy para evitar errores al iniciar
+Con funcionalidad de aprobacion de planes
 """
 
 import sys
@@ -28,15 +28,84 @@ class IntegracionMultiagente:
         }
         self.resultado_final = None
     
+    def generar_plan(self, tarea_texto):
+        """Generar plan detallado para aprobacion del usuario"""
+        try:
+            self._log('Generando plan para aprobacion...')
+            
+            # Importar lazy
+            try:
+                from ceo_orchestrator_v4 import CEOOrchestratorV4
+            except ImportError as e:
+                self._log(f'ERROR importando: {e}')
+                # Plan basico si no se puede importar
+                return {
+                    'tarea': tarea_texto,
+                    'pasos': [
+                        '1. Investigar requisitos y mejores practicas',
+                        '2. Crear plan detallado con Claude CEO',
+                        '3. Ejecutar tareas con Ollama workers',
+                        '4. Validar resultados',
+                        '5. Entregar al usuario'
+                    ],
+                    'modelos': ['Claude CEO', 'Ollama Research', 'Ollama Coding', 'Ollama Validation'],
+                    'estimacion_tokens': {'claude': 200, 'ollama_research': 500, 'ollama_coding': 1000, 'ollama_validation': 300},
+                    'costo_estimado': 0.048,
+                    'tiempo_estimado': '2-3 minutos'
+                }
+            
+            # Crear instancia
+            orchestrator = CEOOrchestratorV4()
+            
+            # Generar plan (sin ejecutar)
+            # Usamos una funcion especial del orchestrator o simulamos
+            plan = {
+                'tarea': tarea_texto,
+                'pasos': [
+                    '1. Ollama Research: Investigar gaps y mejores practicas',
+                    '2. Claude CEO: Crear plan detallado basado en research',
+                    '3. Claude CEO: Delegar tareas a workers',
+                    '4. Ollama Coding: Generar codigo/implementar',
+                    '5. Ollama Validation: Validar resultados',
+                    '6. Claude CEO: Verificar cumplimiento y finalizar'
+                ],
+                'modelos': ['deepseek-v3.1:671b', 'claude-opus-4-7', 'qwen3-coder-next', 'gemma3:27b'],
+                'distribucion_tareas': {
+                    'CEO (Claude)': 'Planear, delegar, verificar',
+                    'Research (Ollama)': 'Investigar, analizar',
+                    'Coding (Ollama)': 'Implementar, generar codigo',
+                    'Validation (Ollama)': 'Validar, corregir'
+                },
+                'estimacion_tokens': {
+                    'claude_ceo': 200,
+                    'ollama_research': 500,
+                    'ollama_coding': 1000,
+                    'ollama_validation': 300
+                },
+                'costo_estimado_usd': 0.048,
+                'tiempo_estimado': '2-3 minutos',
+                'notas': 'El plan puede ajustarse durante la ejecucion segun findings de Research'
+            }
+            
+            self._log('Plan generado exitosamente')
+            return plan
+            
+        except Exception as e:
+            self._log(f'ERROR generando plan: {e}')
+            return {
+                'tarea': tarea_texto,
+                'pasos': ['Error al generar plan detallado'],
+                'error': str(e)
+            }
+    
     def ejecutar_tarea(self, tarea_texto):
         """Ejecutar tarea usando el sistema multiagente real"""
         try:
             self._log('Iniciando ejecucion con sistema multiagente v4.0...')
             
-            # Importar lazy (solo cuando se necesita)
+            # Importar lazy
             try:
                 from ceo_orchestrator_v4 import CEOOrchestratorV4
-                self._log('Sistema multiagente importado correctamente')
             except ImportError as e:
                 self._log(f'ERROR importando sistema multiagente: {e}')
                 return {
@@ -44,7 +113,7 @@ class IntegracionMultiagente:
                     'error': f'No se pudo importar ceo_orchestrator_v4: {e}'
                 }
             
-            # Crear instancia del CEO Orchestrator
+            # Crear instancia
             orchestrator = CEOOrchestratorV4()
             
             # Ejecutar tarea

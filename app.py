@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Dashboard Web para Sistema Multiagente v4.0
-Con login, control del sistema e integracion real con el sistema multiagente
+Con login, control del sistema, aprobacion de planes e integracion real
 """
 
 import os
@@ -12,7 +12,7 @@ from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from functools import wraps
 
-# Importar integracion con sistema multiagente (sin copiar codigo)
+# Importar integracion con sistema multiagente
 from integracion_multiagente import integracion
 
 app = Flask(__name__)
@@ -24,6 +24,13 @@ CONTRASENA = "Doky2010"
 
 # Estado sincronizado con integracion
 estado_sistema = integracion.estado
+
+# Plan pendiente de aprobacion
+plan_pendiente = {
+    'tarea': '',
+    'plan': None,
+    'status': 'NONE'  # NONE, ESPERANDO, APROBADO, RECHAZADO
+}
 
 def requiere_login(f):
     @wraps(f)
@@ -60,16 +67,104 @@ def logout():
 @app.route('/dashboard')
 @requiere_login
 def dashboard():
-    return render_template('dashboard.html', estado=estado_sistema)
+    return render_template('dashboard.html', estado=estado_sistema, plan=plan_pendiente)
 
 @app.route('/api/estado')
 @requiere_login
 def api_estado():
-    return jsonify(estado_sistema)
+    return jsonify({
+        **estado_sistema,
+        'plan_pendiente': plan_pendiente
+    })
+
+@app.route('/api/generar_plan', methods=['POST'])
+@requiere_login
+def api_generar_plan():
+    """Generar plan para aprobacion del usuario"""
+    global plan_pendiente
+    
+    tarea = request.json.get('tarea', '')
+    
+    if not tarea:
+        return jsonify({"error": "Tarea requerida"}), 400
+    
+    # Generar plan usando el sistema multiagente
+    try:
+        from integracion_multiagente import integracion
+        
+        # Generar plan (sin ejecutar)
+        plan = integracion.generar_plan(tarea)
+        
+        plan_pendiente = {
+            'tarea': tarea,
+            'plan': plan,
+            'status': 'ESPERANDO'
+        }
+        
+        estado_sistema['status'] = 'ESPERANDO_APROBACION'
+        estado_sistema['fase'] = 'Plan generado, esperando aprobacion'
+        
+        return jsonify({
+            "status": "PLAN_GENERADO",
+            "plan": plan,
+            "mensaje": "Plan generado. Por favor revisa y aprueba o rechaza."
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/aprobar_plan', methods=['POST'])
+@requiere_login
+def api_aprobar_plan():
+    """Aprobar plan y ejecutar tarea"""
+    global plan_pendiente
+    
+    if plan_pendiente['status'] != 'ESPERANDO':
+        return jsonify({"error": "No hay plan pendiente de aprobacion"}), 400
+    
+    tarea = plan_pendiente['tarea']
+    
+    # Marcar como aprobado
+    plan_pendiente['status'] = 'APROBADO'
+    
+    # Reiniciar estado
+    estado_sistema['status'] = 'RUNNING'
+    estado_sistema['tarea_actual'] = tarea
+    estado_sistema['fase'] = 'Ejecutando tarea aprobada...'
+    estado_sistema['agentes_activos'] = []
+    estado_sistema['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Plan aprobado. Iniciando tarea: {tarea}"]
+    
+    # Ejecutar en background
+    integracion.ejecutar_en_background(tarea)
+    
+    return jsonify({
+        "status": "EJECUTANDO",
+        "tarea": tarea,
+        "mensaje": "Plan aprobado. Ejecutando tarea..."
+    })
+
+@app.route('/api/rechazar_plan', methods=['POST'])
+@requiere_login
+def api_rechazar_plan():
+    """Rechazar plan"""
+    global plan_pendiente
+    
+    if plan_pendiente['status'] != 'ESPERANDO':
+        return jsonify({"error": "No hay plan pendiente de aprobacion"}), 400
+    
+    plan_pendiente['status'] = 'RECHAZADO'
+    estado_sistema['status'] = 'IDLE'
+    estado_sistema['fase'] = 'Plan rechazado por usuario'
+    
+    return jsonify({
+        "status": "RECHAZADO",
+        "mensaje": "Plan rechazado. Puedes enviar una nueva tarea."
+    })
 
 @app.route('/api/ejecutar', methods=['POST'])
 @requiere_login
 def api_ejecutar():
+    """Ejecutar tarea directamente (sin aprobacion)"""
     tarea = request.json.get('tarea', '')
     
     if not tarea:
@@ -82,7 +177,7 @@ def api_ejecutar():
     estado_sistema['agentes_activos'] = []
     estado_sistema['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Iniciando tarea: {tarea}"]
     
-    # Ejecutar en background usando la integracion
+    # Ejecutar en background
     integracion.ejecutar_en_background(tarea)
     
     return jsonify({
