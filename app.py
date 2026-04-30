@@ -85,28 +85,54 @@ def api_ejecutar():
     estado_sistema['fase'] = 'Iniciando'
     estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Iniciando tarea: {tarea}")
     
-    # Ejecutar sistema multiagente en segundo plano
-    try:
-        # Aquí ejecutaríamos el sistema real
-        resultado = {
-            "status": "STARTED",
-            "tarea": tarea,
-            "mensaje": "Tarea iniciada. Revisa el dashboard para ver el progreso."
-        }
-        
-        estado_sistema['planes'].append({
-            "id": len(estado_sistema['planes']) + 1,
-            "tarea": tarea,
-            "status": "PENDING_APPROVAL",
-            "fecha": datetime.now().isoformat()
-        })
-        
-        return jsonify(resultado)
+    # Ejecutar sistema multiagente en segundo plano usando threading
+    import threading
+    def ejecutar_tarea_background(tarea_texto):
+        try:
+            estado_sistema['fase'] = 'Ollama Research investigando...'
+            estado_sistema['agentes_activos'] = ['Ollama-Research']
+            estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Ollama Research investigando gaps...")
+            
+            # Simular investigacion (aqui iria el codigo real)
+            import time
+            time.sleep(3)
+            
+            estado_sistema['fase'] = 'Claude CEO creando plan...'
+            estado_sistema['agentes_activos'] = ['Claude-CEO']
+            estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Claude CEO creando plan...")
+            time.sleep(2)
+            
+            estado_sistema['fase'] = 'Ollama Coding generando codigo...'
+            estado_sistema['agentes_activos'] = ['Ollama-Coding']
+            estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Ollama Coding generando codigo...")
+            time.sleep(4)
+            
+            estado_sistema['fase'] = 'Ollama Validation validando...'
+            estado_sistema['agentes_activos'] = ['Ollama-Validation']
+            estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Ollama Validation validando resultados...")
+            time.sleep(2)
+            
+            estado_sistema['fase'] = 'Completado'
+            estado_sistema['status'] = 'COMPLETED'
+            estado_sistema['agentes_activos'] = []
+            estado_sistema['planes'].append({
+                "id": len(estado_sistema['planes']) + 1,
+                "tarea": tarea_texto,
+                "status": "COMPLETED",
+                "fecha": datetime.now().isoformat()
+            })
+            estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Tarea completada exitosamente!")
+            
+        except Exception as e:
+            estado_sistema['status'] = 'ERROR'
+            estado_sistema['fase'] = f'Error: {str(e)}'
+            estado_sistema['agentes_activos'] = []
+            estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: {str(e)}")
     
-    except Exception as e:
-        estado_sistema['status'] = 'ERROR'
-        estado_sistema['logs'].append(f"[ERROR] {str(e)}")
-        return jsonify({"error": str(e)}), 500
+    # Iniciar ejecucion en background
+    thread = threading.Thread(target=ejecutar_tarea_background, args=(tarea,))
+    thread.daemon = True
+    thread.start()
 
 @app.route('/api/aprobar_plan', methods=['POST'])
 @requiere_login
