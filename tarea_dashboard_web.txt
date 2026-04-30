@@ -1,0 +1,27 @@
+Rol: Eres un desarrollador Full-Stack experto especializado en crear aplicaciones web con Flask, HTML, CSS (Tailwind) y JavaScript.
+
+Tarea: Crea el código para un Dashboard Web de Control para el Sistema Multi-Agente v4.0. El sistema usa modelos locales (Ollama) y en la nube (Claude, Codex).
+
+Requerimientos Técnicos:
+- Backend: Flask (Python)
+- Frontend: HTML + Tailwind CSS + JavaScript vanilla
+- Estilo: Dark mode, moderno, técnico
+
+Funcionalidad del Dashboard:
+1. Login (usuario: Toaderz, contraseña: Doky2010)
+2. Panel de control con:
+   - Estado global de tareas
+   - Monitor de agentes (Claude CEO, Ollama Research, Ollama Coding, Ollama Validation)
+   - Terminal de logs en tiempo real
+   - Botón HALT para detener sistema
+3. Bandeja de aprobaciones para planes de Claude CEO
+4. Métricas de tokens usados por modelo
+5. Gestor de skills (usados, creados, mejorados)
+
+Instrucciones:
+- Genera el código completo y modularizado
+- Incluye app.py (Flask), templates/login.html, templates/dashboard.html
+- Agrega requirements.txt con dependencias
+- El dashboard debe consumir APIs REST del backend
+- Usa datos de prueba (mock data) realistas
+- Devuélveme TODO el código listo para ejecutar

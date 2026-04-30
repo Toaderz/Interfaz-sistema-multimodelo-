@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Sistema Multiagente v4.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .terminal {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #0f0;
+        }
+        .agent-card {
+            transition: all 0.3s ease;
+        }
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen">
+    <header class="glass border-b border-slate-700 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">Bot</span>
+                    <div>
+                        <h1 class="text-xl font-bold">Multi-Agent System v4.0</h1>
+                        <p class="text-sm text-gray-400" id="estado-global">Estado: {{ estado.status }}</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <div class="text-right">
+                        <p class="text-sm text-gray-400">Usuario: {{ session.usuario }}</p>
+                        <p class="text-xs text-gray-500" id="hora-actual">--:--:--</p>
+                    </div>
+                    <a href="/logout" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 px-4 py-2 rounded-lg transition-colors text-sm">
+                        Cerrar Sesion
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            
+            <div class="glass rounded-xl p-6 lg:col-span-2">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold">Estado Global de la Tarea</h2>
+                    <span class="px-3 py-1 rounded-full text-sm font-medium bg-yellow-500/20 text-yellow-300" id="badge-estado">
+                        {{ estado.fase }}
+                    </span>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-gray-300 mb-2">Tarea actual: <span id="tarea-actual" class="text-white font-medium">{{ estado.tarea_actual or 'Ninguna' }}</span></p>
+                    <div class="w-full bg-slate-700 rounded-full h-3">
+                        <div class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: 0%" id="barra-progreso"></div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-3">
+                    <button onclick="ejecutarTarea()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <span>Ejecutar Tarea</span>
+                    </button>
+                    
+                    <button onclick="detenerSistema()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                        <span>HALT / Intervenir</span>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-lg font-semibold mb-4">Metricas</h2>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Agentes Activos</span>
+                        <span class="text-2xl font-bold text-blue-400" id="agentes-activos">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Planes Completados</span>
+                        <span class="text-2xl font-bold text-green-400" id="planes-completados">0</span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Tokens Usados</span>
+                        <span class="text-2xl font-bold text-purple-400" id="tokens-usados">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-2 space-y-6">
+                
+                <div class="glass rounded-xl p-6">
+                    <h2 class="text-lg font-semibold mb-4">Monitor de Agentes en Tiempo Real</h2>
+                    
+                    <div id="agentes-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        
+                        <div class="agent-card glass rounded-lg p-4 border-l-4 border-yellow-500">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">C</span>
+                                    <div>
+                                        <h3 class="font-semibold">Claude CEO</h3>
+                                        <p class="text-xs text-gray-400">claude-opus-4-7</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs bg-yellow-500/20 text-yellow-300">PLANNING</span>
+                            </div>
+                            
+                            <div class="bg-slate-800 rounded p-2 text-sm font-mono text-green-400">
+                                Esperando tarea...
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="agent-card glass rounded-lg p-4 border-l-4 border-blue-500">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">R</span>
+                                    <div>
+                                        <h3 class="font-semibold">Ollama Research</h3>
+                                        <p class="text-xs text-gray-400">deepseek-v3.1:671b</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-300">IDLE</span>
+                            </div>
+                            
+                            <div class="bg-slate-800 rounded p-2 text-sm font-mono text-blue-400">
+                                Listo para investigar
+                            </div>
+                        </div>
+                        
+                        
+                        <div class="agent-card glass rounded-lg p-4 border-l-4 border-green-500">
+                            <div class="flex items-center justify-between mb-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-2xl">Code</span>
+                                    <div>
+                                        <h3 class="font-semibold">Ollama Coding</h3>
+                                        <p class="text-xs text-gray-400">qwen3-coder-next</p>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs bg-gray-500/20 text-gray-300">IDLE</span>
+                            </div>
+                            
+                            <div class="bg-slate-800 rounded p-2 text-sm font-mono text-green-400">
+                                Esperando instrucciones
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold">Terminal en Vivo</h2>
+                        <button onclick="limpiarLogs()" class="text-sm text-gray-400 hover:text-white transition-colors">
+                            Limpiar
+                        </button>
+                    </div>
+                    
+                    <div id="terminal" class="terminal rounded-lg p-4 h-64 overflow-y-auto text-sm">
+                        <div class="text-gray-500">Sistema iniciado...</div>
+                        <div class="text-gray-500">Esperando tarea...</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="space-y-6">
+                
+                <div class="glass rounded-xl p-6">
+                    <h2 class="text-lg font-semibold mb-4">Bandeja de Aprobacion</h2>
+                    
+                    <div id="planes-container" class="space-y-3">
+                        <div class="text-center text-gray-500 py-4">
+                            No hay planes pendientes
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-xl p-6">
+                    <h2 class="text-lg font-semibold mb-4">Fuentes y Research</h2>
+                    
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 p-2 bg-slate-800 rounded">
+                            <span class="text-blue-400">Link</span>
+                            <span class="text-sm">Documentacion Ollama</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2 p-2 bg-slate-800 rounded">
+                            <span class="text-blue-400">Link</span>
+                            <span class="text-sm">API Claude Code</span>
+                        </div>
+                        
+                        <div class="flex items-center gap-2 p-2 bg-slate-800 rounded">
+                            <span class="text-blue-400">Link</span>
+                            <span class="text-sm">Best Practices Multi-Agent</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="glass rounded-xl p-6">
+                    <h2 class="text-lg font-semibold mb-4">Gestor de Skills</h2>
+                    
+                    <div class="space-y-3">
+                        <div class="border-l-4 border-blue-500 pl-3">
+                            <h4 class="text-sm font-medium">Usados</h4>
+                            <p class="text-xs text-gray-400">code-helper, research-core</p>
+                        </div>
+                        
+                        <div class="border-l-4 border-green-500 pl-3">
+                            <h4 class="text-sm font-medium">Creados</h4>
+                            <p class="text-xs text-gray-400">Ninguno en esta sesion</p>
+                        </div>
+                        
+                        <div class="border-l-4 border-yellow-500 pl-3">
+                            <h4 class="text-sm font-medium">Mejorados</h4>
+                            <p class="text-xs text-gray-400">Ninguno en esta sesion</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Actualizar hora
+        function actualizarHora() {
+            const ahora = new Date();
+            document.getElementById('hora-actual').textContent = ahora.toLocaleTimeString();
+        }
+        setInterval(actualizarHora, 1000);
+        actualizarHora();
+
+        // Ejecutar tarea
+        function ejecutarTarea() {
+            const tarea = prompt('Describe la tarea para los agentes:');
+            if (tarea) {
+                agregarLog('Iniciando tarea: ' + tarea);
+                
+                fetch('/api/ejecutar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tarea: tarea })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    agregarLog('Tarea iniciada: ' + data.status);
+                    actualizarDashboard();
+                })
+                .catch(error => {
+                    agregarLog('Error: ' + error);
+                });
+            }
+        }
+
+        // Detener sistema
+        function detenerSistema() {
+            if (confirm('Estas seguro de que quieres detener el sistema?')) {
+                agregarLog('SISTEMA DETENIDO POR EL USUARIO');
+                document.getElementById('badge-estado').textContent = 'HALTED';
+                document.getElementById('badge-estado').className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-500/20 text-red-300';
+            }
+        }
+
+        // Agregar log al terminal
+        function agregarLog(mensaje) {
+            const terminal = document.getElementById('terminal');
+            const hora = new Date().toLocaleTimeString();
+            const linea = document.createElement('div');
+            linea.className = 'text-green-400 mb-1';
+            linea.textContent = '[' + hora + '] ' + mensaje;
+            terminal.appendChild(linea);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        // Limpiar logs
+        function limpiarLogs() {
+            document.getElementById('terminal').innerHTML = '';
+            agregarLog('Terminal limpiado');
+        }
+
+        // Actualizar dashboard
+        function actualizarDashboard() {
+            fetch('/api/estado')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('estado-global').textContent = 'Estado: ' + data.status;
+                    document.getElementById('tarea-actual').textContent = data.tarea_actual || 'Ninguna';
+                    document.getElementById('badge-estado').textContent = data.fase;
+                    document.getElementById('agentes-activos').textContent = data.agentes_activos.length;
+                    document.getElementById('planes-completados').textContent = data.planes.filter(p => p.status === 'COMPLETED').length;
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Actualizar cada 5 segundos
+        setInterval(actualizarDashboard, 5000);
+    </script>
+</body>
+</html>
