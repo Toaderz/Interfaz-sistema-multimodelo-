@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Integracion REAL entre Dashboard y Sistema Multiagente v4.0
-Ejecuta el sistema multiagente real y captura progreso en tiempo real
+SOLUCION TEMPORAL: Usa archivos locales hasta que se cree el repo Sistema-multiagentes
 """
 
 import sys
@@ -12,24 +12,8 @@ import time
 import subprocess
 from datetime import datetime
 
-# URL del repo del sistema multiagente (publico)
-REPO_URL = "https://github.com/Toaderz/Sistema-multiagentes.git"
-MULTIAGENTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sistema_multiagente')
-
-# Si no existe, clonar desde GitHub
-if not os.path.exists(MULTIAGENTE_PATH):
-    try:
-        result = subprocess.run(
-            ['git', 'clone', REPO_URL, MULTIAGENTE_PATH],
-            capture_output=True, timeout=60
-        )
-        if result.returncode == 0:
-            print(f"Sistema multiagente clonado en: {MULTIAGENTE_PATH}")
-        else:
-            print(f"Error clonando: {result.stderr.decode()}")
-    except Exception as e:
-        print(f"Error: {e}")
-
+# PATH LOCAL (solucion temporal hasta que exista el repo en GitHub)
+MULTIAGENTE_PATH = os.path.dirname(os.path.abspath(__file__))
 if MULTIAGENTE_PATH not in sys.path:
     sys.path.insert(0, MULTIAGENTE_PATH)
 
@@ -56,7 +40,7 @@ class IntegracionMultiagente:
         try:
             self._log('Iniciando ejecucion con sistema multiagente v4.0...')
             
-            # Importar el sistema multiagente real
+            # Importar el sistema multiagente real (archivos locales)
             from ceo_orchestrator_v4 import CEOOrchestratorV4
             
             # Crear instancia
