@@ -251,20 +251,38 @@
         function ejecutarTarea() {
             const tarea = prompt('Describe la tarea para los agentes:');
             if (tarea) {
-                agregarLog('Iniciando tarea: ' + tarea);
+                agregarLog('Enviando tarea al servidor...');
                 
                 fetch('/api/ejecutar', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin',
                     body: JSON.stringify({ tarea: tarea })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('Sesion expirada. Recarga la pagina.');
+                        }
+                        return response.text().then(text => {
+                            throw new Error('Error del servidor: ' + text);
+                        });
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    agregarLog('Tarea iniciada: ' + data.status);
+                    agregarLog('Servidor respondio: ' + data.status);
+                    if (data.mensaje) {
+                        agregarLog(data.mensaje);
+                    }
                     actualizarDashboard();
                 })
                 .catch(error => {
-                    agregarLog('Error: ' + error);
+                    agregarLog('ERROR: ' + error.message);
+                    console.error('Error completo:', error);
                 });
             }
         }

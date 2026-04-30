@@ -133,6 +133,15 @@ def api_ejecutar():
     thread = threading.Thread(target=ejecutar_tarea_background, args=(tarea,))
     thread.daemon = True
     thread.start()
+    
+    # Retornar respuesta inmediata
+    resultado = {
+        "status": "STARTED",
+        "tarea": tarea,
+        "mensaje": "Tarea iniciada correctamente. Revisa el dashboard para ver el progreso."
+    }
+    
+    return jsonify(resultado)
 
 @app.route('/api/aprobar_plan', methods=['POST'])
 @requiere_login
