@@ -1,48 +1,23 @@
 #!/usr/bin/env python3
 """
 Integracion REAL entre Dashboard y Sistema Multiagente v4.0
-Intenta clonar desde GitHub, si falla usa archivos locales
+SIMPLIFICADA para Railway - sin clonacion, solo archivos locales
 """
 
 import sys
 import os
+
+# Usar siempre archivos locales (mismo directorio que app.py)
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR)
+
+# Importar directamente (los archivos estan en el mismo repo)
+from ceo_orchestrator_v4 import CEOOrchestratorV4
+
 import json
 import threading
-import time
-import subprocess
 from datetime import datetime
-
-# URL del repo del sistema multiagente (publico)
-REPO_URL = "https://github.com/Toaderz/Sistema-multiagentes.git"
-MULTIAGENTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sistema_multiagente')
-
-# Si no existe, intentar clonar desde GitHub
-if not os.path.exists(MULTIAGENTE_PATH):
-    try:
-        result = subprocess.run(
-            ['git', 'clone', REPO_URL, MULTIAGENTE_PATH],
-            capture_output=True, timeout=60
-        )
-        if result.returncode == 0:
-            print(f"Sistema multiagente clonado en: {MULTIAGENTE_PATH}")
-        else:
-            print(f"No se pudo clonar repo (puede ser privado o no existe)")
-            print("Usando archivos locales incluidos...")
-    except Exception as e:
-        print(f"Error clonando: {e}")
-        print("Usando archivos locales incluidos...")
-
-# Si se clono exitosamente, usar esa ruta
-if os.path.exists(MULTIAGENTE_PATH) and os.path.exists(os.path.join(MULTIAGENTE_PATH, 'ceo_orchestrator_v4.py')):
-    if MULTIAGENTE_PATH not in sys.path:
-        sys.path.insert(0, MULTIAGENTE_PATH)
-    print(f"Usando sistema multiagente desde: {MULTIAGENTE_PATH}")
-else:
-    # Usar archivos locales (mismo directorio)
-    LOCAL_PATH = os.path.dirname(os.path.abspath(__file__))
-    if LOCAL_PATH not in sys.path:
-        sys.path.insert(0, LOCAL_PATH)
-    print(f"Usando sistema multiagente local desde: {LOCAL_PATH}")
 
 class IntegracionMultiagente:
     """Integracion que ejecuta el sistema multiagente real"""
@@ -67,10 +42,7 @@ class IntegracionMultiagente:
         try:
             self._log('Iniciando ejecucion con sistema multiagente v4.0...')
             
-            # Importar el sistema multiagente real
-            from ceo_orchestrator_v4 import CEOOrchestratorV4
-            
-            # Crear instancia
+            # Crear instancia del CEO Orchestrator
             orchestrator = CEOOrchestratorV4()
             
             # Ejecutar tarea
