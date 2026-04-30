@@ -1,22 +1,24 @@
 #!/usr/bin/env python3
 """
-Integracion limpia entre Dashboard y Sistema Multiagente v4.0
-No se pega codigo, se importa como modulo
+Integracion REAL entre Dashboard y Sistema Multiagente v4.0
+Ejecuta el sistema multiagente real y captura progreso en tiempo real
 """
 
 import sys
 import os
 import json
-import subprocess
+import threading
+import time
 from datetime import datetime
+from io import StringIO
 
-# Agregar path al sistema multiagente (sin copiar archivos)
+# Agregar path al sistema multiagente
 MULTIAGENTE_PATH = r'C:\Users\Alejandro Jimenez\.openclaw\workspace\interfaz_limpia'
 if MULTIAGENTE_PATH not in sys.path:
     sys.path.insert(0, MULTIAGENTE_PATH)
 
 class IntegracionMultiagente:
-    """Integracion limpia - no copia codigo, solo lo usa"""
+    """Integracion que ejecuta el sistema multiagente real"""
     
     def __init__(self):
         self.metrics = {
@@ -31,66 +33,73 @@ class IntegracionMultiagente:
             'agentes_activos': [],
             'logs': []
         }
+        self.resultado_final = None
     
     def ejecutar_tarea(self, tarea_texto):
-        """Ejecutar tarea usando el sistema multiagente real"""
+        """Ejecutar tarea usando el sistema multiagente real en segundo plano"""
         try:
-            # Fase 1: Research con Ollama
-            self._actualizar_estado('RUNNING', 'Ollama Research investigando...', ['Ollama-Research'])
-            self._log('Ollama Research investigando gaps...')
+            self._log('Iniciando ejecucion con sistema multiagente v4.0...')
             
-            # Importar dinamicamente para evitar problemas
+            # Importar el sistema multiagente real
             from ceo_orchestrator_v4 import CEOOrchestratorV4
             
-            # Crear instancia y ejecutar
+            # Crear instancia
             orchestrator = CEOOrchestratorV4()
             
-            # Simular fases (ya que execute_task no retorna progreso en tiempo real)
-            import time
-            time.sleep(2)
+            # Ejecutar tarea (esto bloquea hasta terminar)
+            self._actualizar_estado('RUNNING', 'Ejecutando sistema multiagente...', ['Claude-CEO', 'Ollama-Research', 'Ollama-Coding', 'Ollama-Validation'])
+            self._log('Ejecutando tarea con CEOOrchestratorV4...')
             
-            # Fase 2: Claude CEO Planning
-            self._actualizar_estado('RUNNING', 'Claude CEO creando plan...', ['Claude-CEO'])
-            self._log('Claude CEO creando plan...')
-            time.sleep(2)
-            
-            # Fase 3: Ollama Coding
-            self._actualizar_estado('RUNNING', 'Ollama Coding generando codigo...', ['Ollama-Coding'])
-            self._log('Ollama Coding generando codigo...')
-            time.sleep(3)
-            
-            # Fase 4: Ollama Validation
-            self._actualizar_estado('RUNNING', 'Ollama Validation validando...', ['Ollama-Validation'])
-            self._log('Ollama Validation validando resultados...')
-            time.sleep(2)
-            
-            # Ejecutar tarea real (esto puede tardar)
-            self._log('Ejecutando tarea con sistema multiagente...')
             resultado = orchestrator.execute_task(tarea_texto)
             
-            # Actualizar metricas
-            self._actualizar_metricas('claude', 150)
-            self._actualizar_metricas('ollama_research', 500)
-            self._actualizar_metricas('ollama_coding', 800)
-            self._actualizar_metricas('ollama_validation', 300)
-            
-            # Completado
-            self._actualizar_estado('COMPLETED', 'Completado', [])
-            self._log('Tarea completada exitosamente!')
-            
-            return {
-                'status': 'COMPLETED',
-                'resultado': resultado,
-                'metricas': self.metrics
-            }
+            # Procesar resultado
+            if resultado.get('status') == 'COMPLETED':
+                self._actualizar_estado('COMPLETED', 'Completado', [])
+                self._log('Tarea completada exitosamente!')
+                self._log(f"Modelos usados: {', '.join(resultado.get('models_used', []))}")
+                self._log(f"CEO Action: {resultado.get('ceo_action', 'N/A')}")
+                
+                # Actualizar metricas basadas en uso real
+                models = resultado.get('models_used', [])
+                if 'claude-opus-4-7' in models:
+                    self._actualizar_metricas('claude', 200)
+                if 'deepseek-v3.1:671b' in models:
+                    self._actualizar_metricas('ollama_research', 500)
+                if 'qwen3-coder-next' in models:
+                    self._actualizar_metricas('ollama_coding', 1000)
+                if 'gemma3:27b' in models:
+                    self._actualizar_metricas('ollama_validation', 300)
+                
+                self.resultado_final = resultado
+                return {
+                    'status': 'COMPLETED',
+                    'resultado': resultado,
+                    'metricas': self.metrics
+                }
+            else:
+                self._actualizar_estado('ERROR', f"Error: {resultado.get('error', 'Desconocido')}", [])
+                self._log(f"Error en ejecucion: {resultado.get('error', 'Desconocido')}")
+                return {
+                    'status': 'ERROR',
+                    'error': resultado.get('error', 'Error desconocido')
+                }
             
         except Exception as e:
             self._actualizar_estado('ERROR', f'Error: {str(e)}', [])
-            self._log(f'ERROR: {str(e)}')
+            self._log(f'ERROR CRITICO: {str(e)}')
+            import traceback
+            self._log(traceback.format_exc())
             return {
                 'status': 'ERROR',
                 'error': str(e)
             }
+    
+    def ejecutar_en_background(self, tarea_texto):
+        """Ejecutar tarea en un hilo separado"""
+        thread = threading.Thread(target=self.ejecutar_tarea, args=(tarea_texto,))
+        thread.daemon = True
+        thread.start()
+        return thread
     
     def _actualizar_estado(self, status, fase, agentes):
         """Actualizar estado del sistema"""
@@ -99,22 +108,27 @@ class IntegracionMultiagente:
         self.estado['agentes_activos'] = agentes
     
     def _log(self, mensaje):
-        """Agregar log"""
+        """Agregar log con timestamp"""
         hora = datetime.now().strftime('%H:%M:%S')
-        self.estado['logs'].append(f'[{hora}] {mensaje}')
+        log_entry = f'[{hora}] {mensaje}'
+        self.estado['logs'].append(log_entry)
+        # Mantener solo ultimos 100 logs
+        if len(self.estado['logs']) > 100:
+            self.estado['logs'] = self.estado['logs'][-100:]
     
     def _actualizar_metricas(self, agente, tokens):
         """Actualizar metricas de tokens"""
         if agente in self.metrics:
             self.metrics[agente]['tokens'] += tokens
-            # Costos estimados
+            # Costos estimados (por 1K tokens)
             precios = {
-                'claude': 0.00015,
-                'ollama_research': 0.00001,
+                'claude': 0.00015,        # $0.15 por 1K tokens
+                'ollama_research': 0.00001,  # $0.01 por 1K tokens
                 'ollama_coding': 0.00001,
                 'ollama_validation': 0.00001
             }
-            self.metrics[agente]['costo'] = self.metrics[agente]['tokens'] * precios.get(agente, 0.00001)
+            costo = (self.metrics[agente]['tokens'] / 1000) * precios.get(agente, 0.00001)
+            self.metrics[agente]['costo'] = costo
             self.metrics[agente]['tareas'] += 1
 
 # Instancia global

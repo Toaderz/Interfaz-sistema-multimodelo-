@@ -7,13 +7,13 @@ Con login, control del sistema e integracion real con el sistema multiagente
 import os
 import sys
 import json
-import subprocess
+import threading
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from functools import wraps
 
 # Importar integracion con sistema multiagente (sin copiar codigo)
-from integracion_multiagente import integracion, IntegracionMultiagente
+from integracion_multiagente import integracion
 
 app = Flask(__name__)
 app.secret_key = 'sistema-multiagente-secreto-2024'
@@ -22,7 +22,7 @@ app.secret_key = 'sistema-multiagente-secreto-2024'
 USUARIO = "Toaderz"
 CONTRASENA = "Doky2010"
 
-# Datos del sistema - sincronizados con integracion
+# Estado sincronizado con integracion
 estado_sistema = integracion.estado
 
 def requiere_login(f):
@@ -75,32 +75,20 @@ def api_ejecutar():
     if not tarea:
         return jsonify({"error": "Tarea requerida"}), 400
     
-    # Actualizar estado
+    # Reiniciar estado
     estado_sistema['status'] = 'RUNNING'
     estado_sistema['tarea_actual'] = tarea
-    estado_sistema['fase'] = 'Iniciando'
-    estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Iniciando tarea: {tarea}")
+    estado_sistema['fase'] = 'Iniciando...'
+    estado_sistema['agentes_activos'] = []
+    estado_sistema['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Iniciando tarea: {tarea}"]
     
-    # Ejecutar en segundo plano
-    import threading
-    def ejecutar_en_background(tarea_texto):
-        resultado = integracion.ejecutar_tarea(tarea_texto)
-        if resultado['status'] == 'COMPLETED':
-            estado_sistema['planes'].append({
-                "id": len(estado_sistema['planes']) + 1,
-                "tarea": tarea_texto,
-                "status": "COMPLETED",
-                "fecha": datetime.now().isoformat()
-            })
-    
-    thread = threading.Thread(target=ejecutar_en_background, args=(tarea,))
-    thread.daemon = True
-    thread.start()
+    # Ejecutar en background usando la integracion
+    integracion.ejecutar_en_background(tarea)
     
     return jsonify({
         "status": "STARTED",
         "tarea": tarea,
-        "mensaje": "Tarea iniciada correctamente. Revisa el dashboard para ver el progreso."
+        "mensaje": "Tarea iniciada correctamente. El sistema multiagente esta procesando..."
     })
 
 @app.route('/api/metricas')
