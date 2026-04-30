@@ -2,12 +2,14 @@
 """
 Dashboard Web para Sistema Multiagente v4.0
 Con login, control del sistema, aprobacion de planes e integracion real
+ACTUALIZADO: Codex agregado, tiempo real, no simulacion
 """
 
 import os
 import sys
 import json
 import threading
+import time
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from functools import wraps
@@ -30,6 +32,15 @@ plan_pendiente = {
     'tarea': '',
     'plan': None,
     'status': 'NONE'  # NONE, ESPERANDO, APROBADO, RECHAZADO
+}
+
+# Resultado de ejecucion (codigo generado, etc)
+resultado_ejecucion = {
+    'codigo_generado': '',
+    'tokens_consumidos': {},
+    'modelos_usados': [],
+    'tiempo_inicio': None,
+    'tiempo_fin': None
 }
 
 def requiere_login(f):
@@ -72,9 +83,12 @@ def dashboard():
 @app.route('/api/estado')
 @requiere_login
 def api_estado():
+    """API para obtener estado actual en tiempo real"""
     return jsonify({
         **estado_sistema,
-        'plan_pendiente': plan_pendiente
+        'plan_pendiente': plan_pendiente,
+        'resultado': resultado_ejecucion,
+        'metricas': integracion.metrics
     })
 
 @app.route('/api/generar_plan', methods=['POST'])
@@ -90,9 +104,6 @@ def api_generar_plan():
     
     # Generar plan usando el sistema multiagente
     try:
-        from integracion_multiagente import integracion
-        
-        # Generar plan (sin ejecutar)
         plan = integracion.generar_plan(tarea)
         
         plan_pendiente = {
@@ -103,6 +114,7 @@ def api_generar_plan():
         
         estado_sistema['status'] = 'ESPERANDO_APROBACION'
         estado_sistema['fase'] = 'Plan generado, esperando aprobacion'
+        estado_sistema['agentes_activos'] = ['Claude-CEO']
         
         return jsonify({
             "status": "PLAN_GENERADO",
@@ -131,11 +143,37 @@ def api_aprobar_plan():
     estado_sistema['status'] = 'RUNNING'
     estado_sistema['tarea_actual'] = tarea
     estado_sistema['fase'] = 'Ejecutando tarea aprobada...'
-    estado_sistema['agentes_activos'] = []
+    estado_sistema['agentes_activos'] = ['Claude-CEO', 'Ollama-Research']
     estado_sistema['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Plan aprobado. Iniciando tarea: {tarea}"]
     
+    # Reiniciar resultado
+    resultado_ejecucion['codigo_generado'] = ''
+    resultado_ejecucion['tokens_consumidos'] = {}
+    resultado_ejecucion['modelos_usados'] = []
+    resultado_ejecucion['tiempo_inicio'] = time.time()
+    resultado_ejecucion['tiempo_fin'] = None
+    
     # Ejecutar en background
-    integracion.ejecutar_en_background(tarea)
+    def ejecutar_con_monitoreo():
+        resultado = integracion.ejecutar_tarea(tarea)
+        resultado_ejecucion['tiempo_fin'] = time.time()
+        
+        # Capturar codigo generado si existe
+        if resultado.get('status') == 'COMPLETED':
+            res = resultado.get('resultado', {})
+            resultado_ejecucion['modelos_usados'] = res.get('models_used', [])
+            resultado_ejecucion['tokens_consumidos'] = integracion.metrics
+            
+            # Intentar extraer codigo del resultado
+            try:
+                if 'code_generated' in str(res):
+                    resultado_ejecucion['codigo_generado'] = str(res.get('code_generated', ''))
+            except:
+                pass
+    
+    thread = threading.Thread(target=ejecutar_con_monitoreo)
+    thread.daemon = True
+    thread.start()
     
     return jsonify({
         "status": "EJECUTANDO",
@@ -155,6 +193,7 @@ def api_rechazar_plan():
     plan_pendiente['status'] = 'RECHAZADO'
     estado_sistema['status'] = 'IDLE'
     estado_sistema['fase'] = 'Plan rechazado por usuario'
+    estado_sistema['agentes_activos'] = []
     
     return jsonify({
         "status": "RECHAZADO",
@@ -174,11 +213,29 @@ def api_ejecutar():
     estado_sistema['status'] = 'RUNNING'
     estado_sistema['tarea_actual'] = tarea
     estado_sistema['fase'] = 'Iniciando...'
-    estado_sistema['agentes_activos'] = []
+    estado_sistema['agentes_activos'] = ['Claude-CEO']
     estado_sistema['logs'] = [f"[{datetime.now().strftime('%H:%M:%S')}] Iniciando tarea: {tarea}"]
     
-    # Ejecutar en background
-    integracion.ejecutar_en_background(tarea)
+    # Reiniciar resultado
+    resultado_ejecucion['codigo_generado'] = ''
+    resultado_ejecucion['tokens_consumidos'] = {}
+    resultado_ejecucion['modelos_usados'] = []
+    resultado_ejecucion['tiempo_inicio'] = time.time()
+    resultado_ejecucion['tiempo_fin'] = None
+    
+    # Ejecutar en background con monitoreo
+    def ejecutar_con_monitoreo():
+        resultado = integracion.ejecutar_tarea(tarea)
+        resultado_ejecucion['tiempo_fin'] = time.time()
+        
+        if resultado.get('status') == 'COMPLETED':
+            res = resultado.get('resultado', {})
+            resultado_ejecucion['modelos_usados'] = res.get('models_used', [])
+            resultado_ejecucion['tokens_consumidos'] = integracion.metrics
+    
+    thread = threading.Thread(target=ejecutar_con_monitoreo)
+    thread.daemon = True
+    thread.start()
     
     return jsonify({
         "status": "STARTED",
