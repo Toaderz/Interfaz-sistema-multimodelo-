@@ -1,20 +1,11 @@
 #!/usr/bin/env python3
 """
 Integracion REAL entre Dashboard y Sistema Multiagente v4.0
-SIMPLIFICADA para Railway - sin clonacion, solo archivos locales
+SIMPLIFICADA para Railway - imports lazy para evitar errores al iniciar
 """
 
 import sys
 import os
-
-# Usar siempre archivos locales (mismo directorio que app.py)
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-if CURRENT_DIR not in sys.path:
-    sys.path.insert(0, CURRENT_DIR)
-
-# Importar directamente (los archivos estan en el mismo repo)
-from ceo_orchestrator_v4 import CEOOrchestratorV4
-
 import json
 import threading
 from datetime import datetime
@@ -41,6 +32,17 @@ class IntegracionMultiagente:
         """Ejecutar tarea usando el sistema multiagente real"""
         try:
             self._log('Iniciando ejecucion con sistema multiagente v4.0...')
+            
+            # Importar lazy (solo cuando se necesita)
+            try:
+                from ceo_orchestrator_v4 import CEOOrchestratorV4
+                self._log('Sistema multiagente importado correctamente')
+            except ImportError as e:
+                self._log(f'ERROR importando sistema multiagente: {e}')
+                return {
+                    'status': 'ERROR',
+                    'error': f'No se pudo importar ceo_orchestrator_v4: {e}'
+                }
             
             # Crear instancia del CEO Orchestrator
             orchestrator = CEOOrchestratorV4()
