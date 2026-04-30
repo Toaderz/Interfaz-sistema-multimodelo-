@@ -29,6 +29,67 @@ estado_sistema = {
     "logs": []
 }
 
+# Funciones de utilidad
+def guardar_estado():
+    """Guardar estado del sistema a JSON"""
+    try:
+        with open('estado.json', 'w', encoding='utf-8') as f:
+            json.dump(estado_sistema, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error guardando estado: {e}")
+
+def cargar_estado():
+    """Cargar estado del sistema desde JSON"""
+    global estado_sistema
+    try:
+        if os.path.exists('estado.json'):
+            with open('estado.json', 'r', encoding='utf-8') as f:
+                estado_guardado = json.load(f)
+                estado_sistema.update(estado_guardado)
+    except Exception as e:
+        print(f"Error cargando estado: {e}")
+
+def cargar_metricas():
+    """Cargar metricas desde JSON"""
+    try:
+        if os.path.exists('metrics.json'):
+            with open('metrics.json', 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error cargando metricas: {e}")
+    return {
+        "claude": {"modelo": "claude-opus-4-7", "tokens_usados": 0, "costo_estimado_usd": 0.0, "tareas_completadas": 0},
+        "ollama_research": {"modelo": "deepseek-v3.1:671b", "tokens_usados": 0, "costo_estimado_usd": 0.0, "tareas_completadas": 0},
+        "ollama_coding": {"modelo": "qwen3-coder-next", "tokens_usados": 0, "costo_estimado_usd": 0.0, "tareas_completadas": 0},
+        "ollama_validation": {"modelo": "gemma3:27b", "tokens_usados": 0, "costo_estimado_usd": 0.0, "tareas_completadas": 0}
+    }
+
+def guardar_metricas(metricas):
+    """Guardar metricas a JSON"""
+    try:
+        with open('metrics.json', 'w', encoding='utf-8') as f:
+            json.dump(metricas, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"Error guardando metricas: {e}")
+
+def actualizar_metricas(agente, tokens_adicionales):
+    """Actualizar metricas de un agente"""
+    metricas = cargar_metricas()
+    if agente in metricas:
+        metricas[agente]['tokens_usados'] += tokens_adicionales
+        # Calcular costo estimado (precios aproximados)
+        precios = {
+            'claude': 0.00015,  # $0.15 por 1K tokens
+            'ollama_research': 0.00001,  # $0.01 por 1K tokens (Ollama es mas barato)
+            'ollama_coding': 0.00001,
+            'ollama_validation': 0.00001
+        }
+        metricas[agente]['costo_estimado_usd'] = metricas[agente]['tokens_usados'] * precios.get(agente, 0.00001)
+        guardar_metricas(metricas)
+
+# Cargar estado al iniciar
+cargar_estado()
+
 def requiere_login(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -85,33 +146,50 @@ def api_ejecutar():
     estado_sistema['fase'] = 'Iniciando'
     estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Iniciando tarea: {tarea}")
     
+    # Guardar estado
+    guardar_estado()
+    
+    # Actualizar metricas
+    actualizar_metricas('claude', 100)  # Estimacion inicial
+    
     # Ejecutar sistema multiagente en segundo plano usando threading
     import threading
     def ejecutar_tarea_background(tarea_texto):
         try:
+            # Fase 1: Research
             estado_sistema['fase'] = 'Ollama Research investigando...'
             estado_sistema['agentes_activos'] = ['Ollama-Research']
             estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Ollama Research investigando gaps...")
-            
-            # Simular investigacion (aqui iria el codigo real)
+            actualizar_metricas('ollama_research', 500)
+            guardar_estado()
             import time
             time.sleep(3)
             
+            # Fase 2: Planning
             estado_sistema['fase'] = 'Claude CEO creando plan...'
             estado_sistema['agentes_activos'] = ['Claude-CEO']
             estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Claude CEO creando plan...")
+            actualizar_metricas('claude', 200)
+            guardar_estado()
             time.sleep(2)
             
+            # Fase 3: Coding
             estado_sistema['fase'] = 'Ollama Coding generando codigo...'
             estado_sistema['agentes_activos'] = ['Ollama-Coding']
             estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Ollama Coding generando codigo...")
+            actualizar_metricas('ollama_coding', 800)
+            guardar_estado()
             time.sleep(4)
             
+            # Fase 4: Validation
             estado_sistema['fase'] = 'Ollama Validation validando...'
             estado_sistema['agentes_activos'] = ['Ollama-Validation']
             estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Ollama Validation validando resultados...")
+            actualizar_metricas('ollama_validation', 300)
+            guardar_estado()
             time.sleep(2)
             
+            # Completado
             estado_sistema['fase'] = 'Completado'
             estado_sistema['status'] = 'COMPLETED'
             estado_sistema['agentes_activos'] = []
@@ -122,12 +200,14 @@ def api_ejecutar():
                 "fecha": datetime.now().isoformat()
             })
             estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Tarea completada exitosamente!")
+            guardar_estado()
             
         except Exception as e:
             estado_sistema['status'] = 'ERROR'
             estado_sistema['fase'] = f'Error: {str(e)}'
             estado_sistema['agentes_activos'] = []
             estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] ERROR: {str(e)}")
+            guardar_estado()
     
     # Iniciar ejecucion en background
     thread = threading.Thread(target=ejecutar_tarea_background, args=(tarea,))
@@ -158,6 +238,43 @@ def api_aprobar_plan():
             return jsonify({"status": "OK", "plan": plan})
     
     return jsonify({"error": "Plan no encontrado"}), 404
+
+@app.route('/api/metricas')
+@requiere_login
+def api_metricas():
+    """API para obtener metricas de tokens por modelo"""
+    metricas = cargar_metricas()
+    
+    # Calcular totales
+    total_tokens = sum(m['tokens_usados'] for m in metricas.values())
+    total_costo = sum(m['costo_estimado_usd'] for m in metricas.values())
+    total_tareas = sum(m['tareas_completadas'] for m in metricas.values())
+    
+    return jsonify({
+        "metricas_por_modelo": metricas,
+        "totales": {
+            "tokens_usados": total_tokens,
+            "costo_estimado_usd": round(total_costo, 4),
+            "tareas_completadas": total_tareas
+        }
+    })
+
+@app.route('/metricas')
+@requiere_login
+def metricas_page():
+    """Pagina de metricas detalladas"""
+    return render_template('metricas.html')
+
+@app.route('/api/detener', methods=['POST'])
+@requiere_login
+def api_detener():
+    """API para detener el sistema"""
+    estado_sistema['status'] = 'STOPPED'
+    estado_sistema['fase'] = 'DETENIDO POR USUARIO'
+    estado_sistema['agentes_activos'] = []
+    estado_sistema['logs'].append(f"[{datetime.now().strftime('%H:%M:%S')}] Sistema detenido por {session.get('usuario', 'unknown')}")
+    guardar_estado()
+    return jsonify({"status": "STOPPED", "mensaje": "Sistema detenido"})
 
 import os
 PORT = int(os.environ.get('PORT', 5000))

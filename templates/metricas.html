@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metricas - Sistema Multiagente v4.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen">
+    <header class="glass border-b border-slate-700 sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">M</span>
+                    <div>
+                        <h1 class="text-xl font-bold">Metricas del Sistema</h1>
+                        <p class="text-sm text-gray-400">Consumo de tokens y costos</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="/dashboard" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                        Volver al Dashboard
+                    </a>
+                    <a href="/logout" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 px-4 py-2 rounded-lg transition-colors text-sm">
+                        Cerrar Sesion
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto px-4 py-6">
+        <!-- Resumen General -->
+        <div class="glass rounded-xl p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Resumen General</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-slate-800 rounded-lg p-4 text-center">
+                    <p class="text-gray-400 text-sm">Total Tokens Usados</p>
+                    <p class="text-3xl font-bold text-blue-400" id="total-tokens">0</p>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-4 text-center">
+                    <p class="text-gray-400 text-sm">Costo Estimado (USD)</p>
+                    <p class="text-3xl font-bold text-green-400" id="total-costo">$0.0000</p>
+                </div>
+                <div class="bg-slate-800 rounded-lg p-4 text-center">
+                    <p class="text-gray-400 text-sm">Tareas Completadas</p>
+                    <p class="text-3xl font-bold text-purple-400" id="total-tareas">0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metricas por Modelo -->
+        <div class="glass rounded-xl p-6 mb-6">
+            <h2 class="text-lg font-semibold mb-4">Consumo por Modelo</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left">
+                    <thead>
+                        <tr class="border-b border-slate-600">
+                            <th class="py-3 px-4">Agente</th>
+                            <th class="py-3 px-4">Modelo</th>
+                            <th class="py-3 px-4 text-right">Tokens Usados</th>
+                            <th class="py-3 px-4 text-right">Costo Estimado</th>
+                            <th class="py-3 px-4 text-right">Tareas</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-metricas">
+                        <tr>
+                            <td colspan="5" class="py-4 text-center text-gray-500">Cargando metricas...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Grafico de barras simple -->
+        <div class="glass rounded-xl p-6">
+            <h2 class="text-lg font-semibold mb-4">Visualizacion de Consumo</h2>
+            <div id="grafico-barras" class="space-y-4">
+                <p class="text-gray-500 text-center">Cargando datos...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cargar metricas
+        function cargarMetricas() {
+            fetch('/api/metricas')
+                .then(response => response.json())
+                .then(data => {
+                    // Actualizar totales
+                    document.getElementById('total-tokens').textContent = data.totales.tokens_usados.toLocaleString();
+                    document.getElementById('total-costo').textContent = '$' + data.totales.costo_estimado_usd.toFixed(4);
+                    document.getElementById('total-tareas').textContent = data.totales.tareas_completadas;
+
+                    // Actualizar tabla
+                    const tbody = document.getElementById('tabla-metricas');
+                    tbody.innerHTML = '';
+                    
+                    const colores = {
+                        'claude': 'text-yellow-400',
+                        'ollama_research': 'text-blue-400',
+                        'ollama_coding': 'text-green-400',
+                        'ollama_validation': 'text-purple-400'
+                    };
+                    
+                    for (const [agente, metrica] of Object.entries(data.metricas_por_modelo)) {
+                        const tr = document.createElement('tr');
+                        tr.className = 'border-b border-slate-700 hover:bg-slate-800/50';
+                        tr.innerHTML = `
+                            <td class="py-3 px-4 font-medium ${colores[agente] || 'text-white'}">${agente.replace('_', ' ').toUpperCase()}</td>
+                            <td class="py-3 px-4 text-gray-300">${metrica.modelo}</td>
+                            <td class="py-3 px-4 text-right">${metrica.tokens_usados.toLocaleString()}</td>
+                            <td class="py-3 px-4 text-right">$${metrica.costo_estimado_usd.toFixed(4)}</td>
+                            <td class="py-3 px-4 text-right">${metrica.tareas_completadas}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+
+                    // Actualizar grafico
+                    const grafico = document.getElementById('grafico-barras');
+                    grafico.innerHTML = '';
+                    
+                    const maxTokens = Math.max(...Object.values(data.metricas_por_modelo).map(m => m.tokens_usados), 1);
+                    
+                    for (const [agente, metrica] of Object.entries(data.metricas_por_modelo)) {
+                        const porcentaje = (metrica.tokens_usados / maxTokens) * 100;
+                        const barra = document.createElement('div');
+                        barra.className = 'flex items-center gap-4';
+                        barra.innerHTML = `
+                            <div class="w-32 text-sm font-medium ${colores[agente] || 'text-white'}">${agente.replace('_', ' ')}</div>
+                            <div class="flex-1 bg-slate-700 rounded-full h-6 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-500 ${agente === 'claude' ? 'bg-yellow-500' : agente === 'ollama_research' ? 'bg-blue-500' : agente === 'ollama_coding' ? 'bg-green-500' : 'bg-purple-500'}" style="width: ${porcentaje}%"></div>
+                            </div>
+                            <div class="w-20 text-right text-sm text-gray-400">${metrica.tokens_usados.toLocaleString()}</div>
+                        `;
+                        grafico.appendChild(barra);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error cargando metricas:', error);
+                    document.getElementById('tabla-metricas').innerHTML = `
+                        <tr><td colspan="5" class="py-4 text-center text-red-400">Error cargando metricas. Intenta recargar.</td></tr>
+                    `;
+                });
+        }
+
+        // Cargar al iniciar
+        cargarMetricas();
+        
+        // Actualizar cada 10 segundos
+        setInterval(cargarMetricas, 10000);
+    </script>
+</body>
+</html>

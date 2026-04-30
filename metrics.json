@@ -1,0 +1,26 @@
+{
+    "claude": {
+        "modelo": "claude-opus-4-7",
+        "tokens_usados": 0,
+        "costo_estimado_usd": 0.0,
+        "tareas_completadas": 0
+    },
+    "ollama_research": {
+        "modelo": "deepseek-v3.1:671b",
+        "tokens_usados": 0,
+        "costo_estimado_usd": 0.0,
+        "tareas_completadas": 0
+    },
+    "ollama_coding": {
+        "modelo": "qwen3-coder-next",
+        "tokens_usados": 0,
+        "costo_estimado_usd": 0.0,
+        "tareas_completadas": 0
+    },
+    "ollama_validation": {
+        "modelo": "gemma3:27b",
+        "tokens_usados": 0,
+        "costo_estimado_usd": 0.0,
+        "tareas_completadas": 0
+    }
+}
