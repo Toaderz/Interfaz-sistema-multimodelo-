@@ -9,11 +9,27 @@ import os
 import json
 import threading
 import time
+import subprocess
 from datetime import datetime
-from io import StringIO
 
-# Agregar path al sistema multiagente (ahora en el mismo repo)
-MULTIAGENTE_PATH = os.path.dirname(os.path.abspath(__file__))
+# URL del repo del sistema multiagente (publico)
+REPO_URL = "https://github.com/Toaderz/Sistema-multiagentes.git"
+MULTIAGENTE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sistema_multiagente')
+
+# Si no existe, clonar desde GitHub
+if not os.path.exists(MULTIAGENTE_PATH):
+    try:
+        result = subprocess.run(
+            ['git', 'clone', REPO_URL, MULTIAGENTE_PATH],
+            capture_output=True, timeout=60
+        )
+        if result.returncode == 0:
+            print(f"Sistema multiagente clonado en: {MULTIAGENTE_PATH}")
+        else:
+            print(f"Error clonando: {result.stderr.decode()}")
+    except Exception as e:
+        print(f"Error: {e}")
+
 if MULTIAGENTE_PATH not in sys.path:
     sys.path.insert(0, MULTIAGENTE_PATH)
 
@@ -36,7 +52,7 @@ class IntegracionMultiagente:
         self.resultado_final = None
     
     def ejecutar_tarea(self, tarea_texto):
-        """Ejecutar tarea usando el sistema multiagente real en segundo plano"""
+        """Ejecutar tarea usando el sistema multiagente real"""
         try:
             self._log('Iniciando ejecucion con sistema multiagente v4.0...')
             
@@ -46,7 +62,7 @@ class IntegracionMultiagente:
             # Crear instancia
             orchestrator = CEOOrchestratorV4()
             
-            # Ejecutar tarea (esto bloquea hasta terminar)
+            # Ejecutar tarea
             self._actualizar_estado('RUNNING', 'Ejecutando sistema multiagente...', ['Claude-CEO', 'Ollama-Research', 'Ollama-Coding', 'Ollama-Validation'])
             self._log('Ejecutando tarea con CEOOrchestratorV4...')
             
@@ -59,7 +75,7 @@ class IntegracionMultiagente:
                 self._log(f"Modelos usados: {', '.join(resultado.get('models_used', []))}")
                 self._log(f"CEO Action: {resultado.get('ceo_action', 'N/A')}")
                 
-                # Actualizar metricas basadas en uso real
+                # Actualizar metricas
                 models = resultado.get('models_used', [])
                 if 'claude-opus-4-7' in models:
                     self._actualizar_metricas('claude', 200)
@@ -102,28 +118,23 @@ class IntegracionMultiagente:
         return thread
     
     def _actualizar_estado(self, status, fase, agentes):
-        """Actualizar estado del sistema"""
         self.estado['status'] = status
         self.estado['fase'] = fase
         self.estado['agentes_activos'] = agentes
     
     def _log(self, mensaje):
-        """Agregar log con timestamp"""
         hora = datetime.now().strftime('%H:%M:%S')
         log_entry = f'[{hora}] {mensaje}'
         self.estado['logs'].append(log_entry)
-        # Mantener solo ultimos 100 logs
         if len(self.estado['logs']) > 100:
             self.estado['logs'] = self.estado['logs'][-100:]
     
     def _actualizar_metricas(self, agente, tokens):
-        """Actualizar metricas de tokens"""
         if agente in self.metrics:
             self.metrics[agente]['tokens'] += tokens
-            # Costos estimados (por 1K tokens)
             precios = {
-                'claude': 0.00015,        # $0.15 por 1K tokens
-                'ollama_research': 0.00001,  # $0.01 por 1K tokens
+                'claude': 0.00015,
+                'ollama_research': 0.00001,
                 'ollama_coding': 0.00001,
                 'ollama_validation': 0.00001
             }
